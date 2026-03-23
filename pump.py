@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-vinyl_restore.py — Batch vinyl restoration with tempo-aware compression
+pump.py — Batch vinyl restoration with tempo-aware compression
 ========================================================================
 Processes AIFF files through a restoration chain designed for digitised
 vinyl (dance music): rumble removal → tempo-aware compression →
@@ -13,7 +13,7 @@ Dependencies:
     pip install librosa
 
 Usage:
-    python3 vinyl_restore.py <input_dir> [output_dir] [options]
+    python3 pump.py <input_dir> [output_dir] [options]
 
 Options:
     --lufs          Target integrated loudness in LUFS (default: -11)
@@ -27,10 +27,10 @@ Options:
     --bpm FLOAT     Override BPM for all files (skips auto-detection)
 
 Examples:
-    python3 vinyl_restore.py ~/Records/scans
-    python3 vinyl_restore.py ~/Records/scans ~/Records/processed --lufs -11 --jobs 8
-    python3 vinyl_restore.py ~/Records/scans --bpm 174   # force DnB settings
-    python3 vinyl_restore.py ~/Records/scans --dry-run
+    python3 pump.py ~/Records/scans
+    python3 pump.py ~/Records/scans ~/Records/processed --lufs -11 --jobs 8
+    python3 pump.py ~/Records/scans --bpm 174   # force DnB settings
+    python3 pump.py ~/Records/scans --dry-run
 """
 
 import argparse
