@@ -17,7 +17,13 @@ A simple ffmpeg/librosa utility meant to restore the *pump* to dance music rippe
 
 then 
 
-`python3 pump <input_dir> [output_dir] [options]`
+`python3 pump.py <input_dir> [output_dir] [options]`
+
+if vinyl pumper is not able to accurately determine loudness or tempo, it will risk doing a dodgy compression and sucking the life out of the track or causing weird rhythms
+
+to fix this, it will not process tracks its unsure about and output them to a spreadsheet `review_required.csv`. You can then adjust that spreadsheet, and feed it back in for processing once you've reviewed by ear aspects of the track 
+
+`python3 pump.py <input_dir> [output_dir] --review-csv <path_to_csv>/review_required.csv`
 
 ### Options
 ```
