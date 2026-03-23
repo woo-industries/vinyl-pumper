@@ -20,7 +20,7 @@ then
 `python3 pump <input_dir> [output_dir] [options]`
 
 ### Options
-
+```
 --lufs          Target integrated loudness in LUFS (default: -11)
 --peak          True peak ceiling in dBTP (default: -0.5)
 --lra           Loudness range target (default: 7)
@@ -30,3 +30,4 @@ then
 --dry-run       Print what would be processed without writing files
 --no-compress   Skip compression (only normalise + limit)
 --bpm FLOAT     Override BPM for all files (skips auto-detection)
+```
