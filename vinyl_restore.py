@@ -174,9 +174,10 @@ def detect_bpm(path: Path, sample_duration_s: int = 90) -> float | None:
             return None
 
         # Correct half-time / double-time.
-        # Threshold at 52 so genuine 60–70 BPM (downtempo) is kept as-is;
-        # only truly anomalous sub-52 readings get doubled.
-        if bpm < 52:
+        # Threshold at 80 — anything below is assumed to be a half-time
+        # misread and doubled. Genuine sub-80 BPM material is unlikely
+        # in this collection.
+        if bpm < 80:
             bpm *= 2
         elif bpm > 185:
             bpm /= 2
@@ -205,8 +206,8 @@ def build_filter_chain(
 ) -> str:
     filters = []
 
-    # 1. DC offset removal
-    filters.append("dcblock")
+    # 1. DC offset removal (5 Hz highpass — inaudible, removes ADC bias)
+    filters.append("highpass=f=5:poles=2")
 
     # 2. Subsonic high-pass (removes turntable rumble, frees headroom)
     filters.append(f"highpass=f={highpass_hz}:poles=2")
@@ -290,6 +291,7 @@ def render_file(input_path, output_path, measured, compress_params, args) -> boo
         "-i", str(input_path),
         "-af", chain,
         "-c:a", codec,
+        "-ar", "44100",
         "-y", str(output_path),
     ]
     try:
@@ -305,16 +307,21 @@ def render_file(input_path, output_path, measured, compress_params, args) -> boo
 
 # ── Core processing ────────────────────────────────────────────────────────────
 
-def process_file(input_path, output_dir, args):
+def process_file(input_path, output_dir, input_dir, args):
     """Returns (filename, success, bpm_info)"""
     name = input_path.name
     suffix = ".aiff" if args.format == "aiff" else ".wav"
-    output_path = output_dir / (input_path.stem + "_restored" + suffix)
+
+    # Mirror the subdirectory structure of input_dir inside output_dir
+    relative   = input_path.relative_to(input_dir)
+    output_path = output_dir / relative.parent / (input_path.stem + "_restored" + suffix)
 
     if args.dry_run:
         src = f"forced {args.bpm} BPM" if args.bpm else ("librosa" if LIBROSA_AVAILABLE else f"fallback {FALLBACK_BPM}")
-        print(f"  [DRY RUN] {name}  (BPM source: {src})")
+        print(f"  [DRY RUN] {relative}  (BPM source: {src})")
         return name, True, ""
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if output_path.exists():
         print(f"  [SKIP]    {name}")
@@ -404,7 +411,7 @@ def main():
     if not args.dry_run:
         output_dir.mkdir(parents=True, exist_ok=True)
 
-    files = sorted(f for f in input_dir.iterdir()
+    files = sorted(f for f in input_dir.rglob("*")
                    if f.is_file() and f.suffix in EXTENSIONS)
 
     if not files:
@@ -435,7 +442,7 @@ def main():
     succeeded, failed = 0, []
 
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = {pool.submit(process_file, f, output_dir, args): f for f in files}
+        futures = {pool.submit(process_file, f, output_dir, input_dir, args): f for f in files}
         for i, future in enumerate(as_completed(futures), 1):
             name, ok, _ = future.result()
             if ok:
