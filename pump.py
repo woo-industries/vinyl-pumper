@@ -154,9 +154,10 @@ def detect_bpm(path: Path, sample_duration_s: int = 90) -> float | None:
     """
     Detect BPM using librosa's beat tracker.
 
-    Loads audio at 22050 Hz (mono) for speed. Skips the first 25% of
-    the track to land past intros, breakdowns and run-in grooves.
-    Analyses up to sample_duration_s seconds from that point.
+    Loads audio at 22050 Hz (mono) for speed. Skips the first 60 s or
+    25% of the track (whichever is longer) to land past silent intros,
+    breakdowns and run-in grooves. Analyses up to sample_duration_s
+    seconds from that point.
 
     Anything detected below 80 BPM is doubled (assumed half-time misread).
     Anything above 185 BPM is halved (assumed double-time misread).
@@ -170,8 +171,9 @@ def detect_bpm(path: Path, sample_duration_s: int = 90) -> float | None:
     try:
         duration = librosa.get_duration(path=str(path))
 
-        # Skip first 25% — past most intros and breakdowns
-        offset      = duration * 0.25
+        # Skip at least 60 s or 25% of the track, whichever is longer —
+        # ensures silent or ambient intros don't skew the tempo reading.
+        offset      = max(60.0, duration * 0.25)
         analyse_for = min(sample_duration_s, duration - offset)
 
         if analyse_for < 10:
@@ -185,20 +187,29 @@ def detect_bpm(path: Path, sample_duration_s: int = 90) -> float | None:
             duration=analyse_for,
         )
 
-        # start_bpm=100 is a neutral midpoint that avoids the tracker
-        # anchoring on 120 BPM by default
-        tempo, _ = librosa.beat.beat_track(y=y, sr=sr, start_bpm=100, units="time")
+        # librosa.feature.tempo uses a tempogram (autocorrelation of onset
+        # strength) which is more reliable than beat_track for steady-pulse
+        # electronic music. start_bpm=120 is a better prior for dance music
+        # than 100, which was pulling estimates toward ~89 BPM on techno tracks.
+        tempo = librosa.feature.tempo(y=y, sr=sr, start_bpm=120, aggregate=np.median)
 
         bpm = float(np.atleast_1d(tempo)[0])
 
         if bpm < 40 or bpm > 220:
             return None
 
-        # Correct half-time / double-time
+        # Correct half-time / double-time / 3:2 misreads
         if bpm < 80:
             bpm *= 2
         elif bpm > 185:
             bpm /= 2
+        # 3:2 ratio correction: e.g. 89 BPM detected when actual is ~133 BPM.
+        # If the result is in the 80–100 range but multiplying by 1.5 lands in
+        # a plausible dance-music range, prefer the corrected value.
+        elif 80 <= bpm <= 100:
+            corrected = bpm * 1.5
+            if 110 <= corrected <= 185:
+                bpm = corrected
 
         return round(bpm, 1)
 
